@@ -1,0 +1,797 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ramen Hack — Kitchen</title>
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --red: #c0392b;
+    --red-light: #fdf0ef;
+    --orange: #e07b39;
+    --green: #27ae60;
+    --green-light: #eafaf1;
+    --green-dark: #1e8449;
+    --yellow: #f39c12;
+    --text: #1a1a1a;
+    --muted: #888;
+    --border: #e8e8e8;
+    --white: #ffffff;
+    --bg: #f5f5f5;
+    --blue: #2980b9;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Sans KR', sans-serif;
+    min-height: 100vh;
+  }
+
+  /* HEADER — matches POS exactly */
+  header {
+    background: var(--red);
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+  }
+
+  .brand {
+    font-family: 'Black Han Sans', sans-serif;
+    font-size: 20px;
+    color: white;
+    letter-spacing: 1px;
+  }
+  .brand span { color: #f39c12; }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .status-pill {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    background: rgba(0,0,0,0.18);
+    border-radius: 20px;
+    padding: 3px 10px;
+    font-size: 11px;
+    color: white;
+  }
+
+  .status-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: #f39c12;
+  }
+  .status-dot.connected { background: #2ecc71; box-shadow: 0 0 5px #2ecc71; }
+  .status-dot.error { background: #f39c12; }
+
+  .clock {
+    font-family: 'Black Han Sans', sans-serif;
+    font-size: 15px;
+    color: white;
+  }
+
+  /* TABS — mirrors POS tab style */
+  .tabs {
+    display: flex;
+    background: var(--white);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .tab-btn {
+    flex: 1;
+    background: none;
+    border: none;
+    font-family: 'Black Han Sans', sans-serif;
+    font-size: 14px;
+    padding: 12px 8px;
+    cursor: pointer;
+    border-bottom: 3px solid transparent;
+    color: var(--muted);
+    transition: all 0.2s;
+    letter-spacing: 0.5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+  }
+
+  .tab-btn.active {
+    color: var(--red);
+    border-bottom-color: var(--red);
+  }
+
+  .tab-badge {
+    font-size: 11px;
+    font-weight: 700;
+    border-radius: 12px;
+    padding: 2px 8px;
+    font-family: 'Noto Sans KR', sans-serif;
+    color: white;
+    background: var(--red);
+  }
+
+  .tab-badge.green { background: var(--green); }
+
+  /* MAIN */
+  main { padding: 10px; }
+
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  /* OFFLINE BANNER */
+  .conn-banner {
+    background: #fff8e1;
+    border: 1px solid var(--yellow);
+    border-radius: 6px;
+    padding: 8px 12px;
+    margin-bottom: 10px;
+    font-size: 12px;
+    color: #7d5a00;
+    display: none;
+    align-items: center;
+    gap: 8px;
+  }
+  .conn-banner.show { display: flex; }
+
+  /* EMPTY */
+  .empty {
+    text-align: center;
+    padding: 50px 20px;
+    color: var(--muted);
+    font-size: 14px;
+  }
+  .empty-icon { font-size: 40px; margin-bottom: 10px; }
+
+  /* ORDER CARD — mirrors POS kitchen card */
+  .order-card {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.07);
+  }
+
+  /* CARD HEADER */
+  .card-header {
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  /* PENDING — red/orange urgent */
+  .order-card.pending-card {
+    background: #fff0ec;
+    border-left: 5px solid var(--red);
+  }
+  .order-card.pending-card .card-header {
+    background: #e8613a;
+  }
+
+  /* DONE — grey faded */
+  .order-card.done-card {
+    background: #efefef;
+    border-left: 5px solid #999;
+    opacity: 0.85;
+  }
+  .order-card.done-card .card-header {
+    background: #cecece;
+  }
+
+  .order-num {
+    font-family: 'Black Han Sans', sans-serif;
+    font-size: 22px;
+  }
+
+  .pending-card .order-num { color: #fff; }
+  .pending-card .customer-name { color: #FFD700; font-size: 17px; font-weight: 900; letter-spacing: 0.5px; }
+  .done-card .order-num { color: #555; }
+  .done-card .customer-name { color: #c0392b; }
+
+  .customer-name {
+    font-size: 17px;
+    color: #FFD700;
+    margin-top: 2px;
+  }
+
+  /* DONE BADGE — top right of header */
+  .done-badge-pill {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    color: var(--green-dark);
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  /* TIMER PILL — matches POS style */
+  .timer-pill {
+    background: #fce8e6;
+    border: 1px solid #f5c0bc;
+    border-radius: 20px;
+    padding: 3px 10px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .timer-pill .timer-display {
+    font-family: 'Black Han Sans', sans-serif;
+    font-size: 16px;
+  }
+
+  .timer-display.green { color: var(--green); }
+  .timer-display.yellow { color: var(--yellow); }
+  .timer-display.red { color: var(--red); animation: pulse 1s infinite; }
+
+  /* Yellow pill when warning */
+  .timer-pill.yellow {
+    background: #fef9e7;
+    border-color: #f9e4a0;
+  }
+
+  /* Red pill when urgent */
+  .timer-pill.red {
+    background: #fce8e6;
+    border-color: #f5c0bc;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  /* DIVIDER */
+  .card-divider {
+    height: 1px;
+    background: var(--border);
+    margin: 0 14px;
+  }
+
+  /* ITEMS — bullet dot style matching POS */
+  .card-items { padding: 10px 14px; }
+
+  .item-block { margin-bottom: 10px; }
+  .item-block:last-child { margin-bottom: 0; }
+
+  /* ITEM NAME - bold, dark, slightly smaller */
+  .item-name {
+    font-weight: 900;
+    font-size: 13px;
+    color: #1a1a1a;
+    margin-bottom: 3px;
+  }
+
+  /* MODIFIER - orange, small, italic feel */
+  .item-modifier {
+    font-size: 11px;
+    font-weight: 800;
+    color: #e07b39;
+    margin-bottom: 3px;
+  }
+
+  /* CONTENTS - blue, smaller */
+  .item-contents-inline {
+    font-size: 11px;
+    font-weight: 700;
+    color: #2980b9;
+    margin-top: 2px;
+    line-height: 1.4;
+  }-size: 16px;
+    line-height: 1;
+  }
+
+  /* REQUEST */
+  .card-request {
+    margin: 0 14px 10px;
+    background: #fff8e1;
+    border-left: 3px solid var(--yellow);
+    padding: 6px 10px;
+    border-radius: 0 4px 4px 0;
+    font-size: 12px;
+    color: #7d5a00;
+  }
+
+  /* FOOTER */
+  .card-footer {
+    padding: 10px 14px;
+    border-top: 1px solid var(--border);
+  }
+
+  .done-btn {
+    width: 100%;
+    padding: 12px;
+    border: none;
+    border-radius: 8px;
+    font-family: 'Black Han Sans', sans-serif;
+    font-size: 15px;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  .done-btn.pending {
+    background: var(--green);
+    color: white;
+  }
+  .done-btn.pending:hover { background: var(--green-dark); }
+
+  .done-btn.undone {
+    background: var(--red-light);
+    color: var(--muted);
+    border: 1px solid #f0d0ce;
+  }
+  .done-btn.undone:hover { background: #f5ddd9; color: var(--text); }
+</style>
+</head>
+<body>
+
+<header style="padding:0 8px;height:44px;">
+  <div class="brand" style="font-size:14px;">RAMEN <span>HACK</span></div>
+  <div class="header-right" style="gap:5px;">
+    <button id="sound-toggle-btn" onclick="toggleSound()" style="background:#555;border:2px solid #777;border-radius:50px;padding:4px 9px;font-family:'Black Han Sans',sans-serif;font-size:10px;color:#ccc;cursor:pointer;">🔇</button>
+    <button onclick="manualSync()" style="background:var(--yellow);border:2px solid #c89a00;border-radius:50px;padding:4px 9px;font-family:'Black Han Sans',sans-serif;font-size:10px;color:#1a1a1a;cursor:pointer;">↻ SYNC</button>
+    <div class="status-pill" style="padding:4px 8px;font-size:10px;">
+      <span class="status-dot" id="statusDot"></span>
+      <span id="statusText" style="font-size:10px;">...</span>
+    </div>
+    <div id="clock" style="font-family:'Black Han Sans',sans-serif;font-size:10px;color:rgba(255,255,255,0.7);"></div>
+  </div>
+</header>
+
+<div class="tabs">
+  <button class="tab-btn active" onclick="switchTab('pending')" id="tab-pending">
+    PENDING <span class="tab-badge" id="pendingBadge">0</span>
+  </button>
+  <button class="tab-btn" onclick="switchTab('done')" id="tab-done">
+    DONE <span class="tab-badge green" id="doneBadge">0</span>
+  </button>
+</div>
+
+<main>
+  <div class="conn-banner" id="connBanner">
+    ⚠️ Firebase offline — showing last known orders
+  </div>
+
+  <div class="tab-panel active" id="panel-pending">
+    <div id="pendingList">
+      <div class="empty"><div class="empty-icon">🍜</div>No pending orders</div>
+    </div>
+  </div>
+
+  <div class="tab-panel" id="panel-done">
+    <div id="doneList">
+      <div class="empty"><div class="empty-icon">✅</div>No completed orders yet</div>
+    </div>
+  </div>
+</main>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getDatabase, ref, onValue, update } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyDQsm8Y4e7DIw99IDa8Mcckw54T87P_haw",
+    authDomain: "ramen-hack-ub.firebaseapp.com",
+    projectId: "ramen-hack-ub",
+    storageBucket: "ramen-hack-ub.firebasestorage.app",
+    messagingSenderId: "246190930849",
+    appId: "1:246190930849:web:29110b92bd94c3317769e0",
+    databaseURL: "https://ramen-hack-ub-default-rtdb.firebaseio.com"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+
+  // Clock
+  function updateClock() {
+    const now = new Date();
+    document.getElementById('clock').textContent =
+      now.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', hour12: true });
+  }
+  updateClock();
+  setInterval(updateClock, 1000);
+
+  // Connection
+  onValue(ref(db, '.info/connected'), snap => {
+    const ok = snap.val();
+    document.getElementById('statusDot').className = 'status-dot ' + (ok ? 'connected' : 'error');
+    document.getElementById('statusText').textContent = ok ? 'Live' : 'Offline';
+    document.getElementById('connBanner').classList.toggle('show', !ok);
+  });
+
+  let timerIntervals = {};
+
+
+
+// ── LOUD ALARM BELL ──
+let _audioCtx = null;
+function getAudioCtx() {
+  if (!_audioCtx) _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (_audioCtx.state === 'suspended') _audioCtx.resume();
+  return _audioCtx;
+}
+document.addEventListener('touchstart', function() { try { getAudioCtx(); } catch(e) {} }, {once:true});
+document.addEventListener('click', function() { try { getAudioCtx(); } catch(e) {} }, {once:true});
+
+function playBell() {
+  try {
+    const ctx = getAudioCtx();
+
+    // Create compressor to maximize loudness
+    const compressor = ctx.createDynamicsCompressor();
+    compressor.threshold.setValueAtTime(-10, ctx.currentTime);
+    compressor.knee.setValueAtTime(0, ctx.currentTime);
+    compressor.ratio.setValueAtTime(20, ctx.currentTime);
+    compressor.attack.setValueAtTime(0, ctx.currentTime);
+    compressor.release.setValueAtTime(0.1, ctx.currentTime);
+    compressor.connect(ctx.destination);
+
+    function alarm(startTime) {
+      // Layer 1: Sharp attack beep
+      const osc1 = ctx.createOscillator();
+      const g1 = ctx.createGain();
+      osc1.connect(g1); g1.connect(compressor);
+      osc1.type = 'square'; // square wave = much harsher/louder
+      osc1.frequency.setValueAtTime(880, startTime);
+      osc1.frequency.setValueAtTime(1200, startTime + 0.05);
+      osc1.frequency.setValueAtTime(880, startTime + 0.1);
+      g1.gain.setValueAtTime(0, startTime);
+      g1.gain.linearRampToValueAtTime(1.5, startTime + 0.01);
+      g1.gain.setValueAtTime(1.5, startTime + 0.15);
+      g1.gain.linearRampToValueAtTime(0, startTime + 0.25);
+      osc1.start(startTime); osc1.stop(startTime + 0.25);
+
+      // Layer 2: High pitched overtone
+      const osc2 = ctx.createOscillator();
+      const g2 = ctx.createGain();
+      osc2.connect(g2); g2.connect(compressor);
+      osc2.type = 'sawtooth';
+      osc2.frequency.setValueAtTime(1760, startTime);
+      g2.gain.setValueAtTime(0, startTime);
+      g2.gain.linearRampToValueAtTime(0.8, startTime + 0.01);
+      g2.gain.linearRampToValueAtTime(0, startTime + 0.2);
+      osc2.start(startTime); osc2.stop(startTime + 0.2);
+
+      // Layer 3: Low punch
+      const osc3 = ctx.createOscillator();
+      const g3 = ctx.createGain();
+      osc3.connect(g3); g3.connect(compressor);
+      osc3.type = 'sine';
+      osc3.frequency.setValueAtTime(220, startTime);
+      g3.gain.setValueAtTime(0, startTime);
+      g3.gain.linearRampToValueAtTime(1.0, startTime + 0.005);
+      g3.gain.linearRampToValueAtTime(0, startTime + 0.15);
+      osc3.start(startTime); osc3.stop(startTime + 0.15);
+    }
+
+    const t = ctx.currentTime;
+    // 5 rapid alarm beeps
+    alarm(t);
+    alarm(t + 0.3);
+    alarm(t + 0.6);
+    alarm(t + 0.9);
+    alarm(t + 1.2);
+
+  } catch(e) { console.log('Bell error:', e); }
+}
+// ── NEW ORDER TOAST NOTIF ──
+function showNewOrderNotif() {
+  let notif = document.getElementById('newOrderNotif');
+  if (!notif) {
+    notif = document.createElement('div');
+    notif.id = 'newOrderNotif';
+    notif.style.cssText = `
+      position:fixed;top:70px;left:50%;transform:translateX(-50%);
+      background:#c0392b;color:#fff;
+      font-family:'Black Han Sans',sans-serif;font-size:16px;
+      padding:12px 28px;border-radius:30px;
+      box-shadow:0 4px 20px rgba(0,0,0,0.3);
+      z-index:999;letter-spacing:1px;
+      border:2px solid #e07b39;
+      opacity:0;transition:opacity 0.2s;
+      pointer-events:none;white-space:nowrap;
+    `;
+    notif.textContent = '🍜 New Order!';
+    document.body.appendChild(notif);
+  }
+  notif.style.opacity = '1';
+  clearTimeout(notif._t);
+  notif._t = setTimeout(() => { notif.style.opacity = '0'; }, 3000);
+}
+
+  let _prevPendingCount = 0;
+
+  onValue(ref(db, 'orders'), snap => {
+    const data = snap.val() || {};
+    const allOrders = Object.entries(data).map(([id, o]) => ({ id, ...o }));
+
+    // Update local cache
+    _localOrders = {};
+    allOrders.forEach(o => { _localOrders[o.id] = o; });
+
+    const todayISO = new Date().toISOString().split('T')[0];
+    const todayOrders = allOrders.filter(o => {
+      if (!o.timestamp) return false;
+      return new Date(o.timestamp).toISOString().split('T')[0] === todayISO;
+    });
+
+    const pending = todayOrders.filter(o => !o.done).sort((a, b) => a.timestamp - b.timestamp);
+    const done = todayOrders.filter(o => o.done).sort((a, b) => b.doneAt - a.doneAt);
+
+    // Play bell on new pending orders
+    if (pending.length > _prevPendingCount) { window._kitchenPlayBell(); showNewOrderNotif(); }
+    _prevPendingCount = pending.length;
+
+    renderList('pendingList', pending, false);
+    renderList('doneList', done, true);
+    document.getElementById('pendingBadge').textContent = pending.length;
+    document.getElementById('doneBadge').textContent = done.length;
+
+    Object.values(timerIntervals).forEach(clearInterval);
+    timerIntervals = {};
+    pending.forEach(o => startTimer(o));
+  });;
+
+  function renderList(listId, orders, isDone) {
+    const el = document.getElementById(listId);
+    if (!orders.length) {
+      el.innerHTML = `<div class="empty">
+        <div class="empty-icon">${isDone ? '✅' : '🍜'}</div>
+        ${isDone ? 'No completed orders yet' : 'No pending orders'}
+      </div>`;
+      return;
+    }
+    el.innerHTML = orders.map(o => buildCard(o, isDone)).join('');
+  }
+
+  function buildCard(order, isDone) {
+    const items = (order.items || []);
+
+    const itemsHtml = items.map(item => {
+      const modText = item.modifiers ? `<div class="item-modifier">✦ ${item.modifiers}</div>` : '';
+      const contentsHtml = item.contents
+        ? `<div class="item-contents-inline">${item.contents}</div>` : '';
+      return `<div class="item-block">
+        <div class="item-name">${item.qty > 1 ? item.qty + 'x ' : '1x '}${item.name}</div>
+        ${modText}${contentsHtml}
+      </div>`;
+    }).join('');
+
+    const requestHtml = order.request
+      ? `<div class="card-request">📝 ${order.request}</div>` : '';
+
+    const customerName = order.customer || 'Guest';
+
+    const orderTime = new Date(order.timestamp).toLocaleTimeString('en-PH',{hour:'2-digit',minute:'2-digit',hour12:true});
+    const headerRight = isDone
+      ? `<div class="done-badge-pill">☑ Done</div>`
+      : `<div class="timer-pill" id="tpill-${order.id}">
+          <span>⏱</span>
+          <span class="timer-display green" id="timer-${order.id}">0:00</span>
+        </div>`;
+
+    const btnHtml = isDone
+      ? `<button onclick="window.toggleDone('${order.id}', false)" style="width:100%;background:#f1f5f9;border:1.5px solid #cbd5e1;border-radius:8px;padding:9px;font-family:'Black Han Sans',sans-serif;font-size:13px;color:#64748b;cursor:pointer;touch-action:manipulation;">↩️ UNDONE</button>`
+      : `<button onclick="window.toggleDone('${order.id}', true)" style="width:100%;background:#16a34a;border:none;border-radius:8px;padding:9px;font-family:'Black Han Sans',sans-serif;font-size:13px;color:#fff;cursor:pointer;touch-action:manipulation;">✅ DONE — ${order.customer||'Guest'}</button>`;
+
+    const cardClass = isDone ? 'done-card' : 'pending-card';
+
+    return `<div class="order-card ${cardClass}" id="card-${order.id}">
+      <div class="card-header">
+        <div>
+          <div class="order-num">#${String(order.orderNum || '').padStart(3,'0')}</div>
+          <div style="font-size:17px;font-weight:900;color:${isDone?'#c0392b':'#FFD700'};letter-spacing:0.5px;margin-top:2px;">${customerName}</div>
+        </div>
+        ${headerRight}
+      </div>
+      <div class="card-divider"></div>
+      <div class="card-items">${itemsHtml}</div>
+      ${requestHtml}
+      <div style="padding:6px 12px;border-top:1px solid var(--border);">${btnHtml}</div>
+    </div>`;
+  }
+
+  function startTimer(order) {
+    const id = order.id;
+    const start = order.timestamp || Date.now();
+
+    function tick() {
+      const el = document.getElementById(`timer-${id}`);
+      const pill = document.getElementById(`tpill-${id}`);
+      if (!el) { clearInterval(timerIntervals[id]); return; }
+
+      const elapsed = Math.floor((Date.now() - start) / 1000);
+      const mins = Math.floor(elapsed / 60);
+      const secs = elapsed % 60;
+      el.textContent = `${mins}:${secs.toString().padStart(2,'0')}`;
+
+      let color;
+      if (elapsed < 180) color = 'green';
+      else if (elapsed < 360) color = 'yellow';
+      else color = 'red';
+
+      el.className = `timer-display ${color}`;
+      if (pill) pill.className = `timer-pill ${color === 'green' ? '' : color}`;
+    }
+
+    tick();
+    timerIntervals[id] = setInterval(tick, 1000);
+  }
+
+  // toggleDone removed — kitchen is read-only, cashier controls done/undone
+
+  // Local cache for instant rendering
+  let _localOrders = {};
+
+  window.toggleDone = function(orderId, isDone) {
+    // Update local cache instantly
+    if (_localOrders[orderId]) {
+      _localOrders[orderId].done = isDone;
+      _localOrders[orderId].doneAt = isDone ? Date.now() : null;
+    }
+    // Re-render immediately - no Firebase wait
+    renderFromCache();
+    // Sync to Firebase in background silently
+    update(ref(db), {
+      ['orders/' + orderId + '/done']: isDone,
+      ['orders/' + orderId + '/doneAt']: isDone ? Date.now() : null
+    });
+  };
+
+  function renderFromCache() {
+    const todayISO = new Date().toISOString().split('T')[0];
+    const allOrders = Object.values(_localOrders);
+    const todayOrders = allOrders.filter(o => {
+      if (!o.timestamp) return false;
+      return new Date(o.timestamp).toISOString().split('T')[0] === todayISO;
+    });
+    const pending = todayOrders.filter(o => !o.done).sort((a,b) => a.timestamp - b.timestamp);
+    const done = todayOrders.filter(o => o.done).sort((a,b) => (b.doneAt||0) - (a.doneAt||0));
+    renderList('pendingList', pending, false);
+    renderList('doneList', done, true);
+    document.getElementById('pendingBadge').textContent = pending.length;
+    document.getElementById('doneBadge').textContent = done.length;
+    Object.values(timerIntervals).forEach(clearInterval);
+    timerIntervals = {};
+    pending.forEach(o => startTimer(o));
+  }
+
+  window.switchTab = function(tab) {
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById(`panel-${tab}`).classList.add('active');
+    document.getElementById(`tab-${tab}`).classList.add('active');
+  };
+</script>
+
+<!-- PWA Service Worker Registration -->
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js')
+      .then(reg => console.log('[PWA] SW registered:', reg.scope))
+      .catch(err => console.log('[PWA] SW failed:', err));
+  });
+}
+</script>
+
+<script>
+// Sound toggle - must be in regular script (not module) for onclick to work
+let _soundArmed = false;
+let _audioCtx = null;
+
+function getAudioCtx() {
+  if (!_audioCtx) _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (_audioCtx.state === 'suspended') _audioCtx.resume();
+  return _audioCtx;
+}
+
+
+function manualSync() {
+  const btn = document.querySelector('[onclick="manualSync()"]');
+  if (btn) { btn.textContent = '↻ Syncing...'; btn.style.background = '#f59e0b'; }
+  // Firebase re-syncs automatically — just visual feedback
+  setTimeout(() => {
+    if (btn) { btn.textContent = '↻ SYNC'; btn.style.background = 'var(--yellow)'; }
+  }, 1500);
+}
+
+function toggleSound() {
+  const btn = document.getElementById('sound-toggle-btn');
+  if (!_soundArmed) {
+    try {
+      getAudioCtx();
+      _soundArmed = true;
+      if (btn) {
+        btn.style.background = '#16a34a';
+        btn.style.borderColor = '#15803d';
+        btn.style.color = '#fff';
+        btn.innerHTML = '🔔 ON';
+      }
+      playBell();
+    } catch(e) { console.log('Audio error:', e); }
+  } else {
+    _soundArmed = false;
+    if (btn) {
+      btn.style.background = '#555';
+      btn.style.borderColor = '#777';
+      btn.style.color = '#ccc';
+      btn.innerHTML = '🔇 OFF';
+    }
+  }
+}
+
+function playBell() {
+  try {
+    const ctx = getAudioCtx();
+    const compressor = ctx.createDynamicsCompressor();
+    compressor.threshold.setValueAtTime(-10, ctx.currentTime);
+    compressor.ratio.setValueAtTime(20, ctx.currentTime);
+    compressor.connect(ctx.destination);
+
+    function alarm(startTime) {
+      const osc1 = ctx.createOscillator();
+      const g1 = ctx.createGain();
+      osc1.connect(g1); g1.connect(compressor);
+      osc1.type = 'square';
+      osc1.frequency.setValueAtTime(880, startTime);
+      osc1.frequency.setValueAtTime(1200, startTime + 0.05);
+      osc1.frequency.setValueAtTime(880, startTime + 0.1);
+      g1.gain.setValueAtTime(0, startTime);
+      g1.gain.linearRampToValueAtTime(1.5, startTime + 0.01);
+      g1.gain.setValueAtTime(1.5, startTime + 0.15);
+      g1.gain.linearRampToValueAtTime(0, startTime + 0.25);
+      osc1.start(startTime); osc1.stop(startTime + 0.25);
+
+      const osc2 = ctx.createOscillator();
+      const g2 = ctx.createGain();
+      osc2.connect(g2); g2.connect(compressor);
+      osc2.type = 'sawtooth';
+      osc2.frequency.setValueAtTime(1760, startTime);
+      g2.gain.setValueAtTime(0, startTime);
+      g2.gain.linearRampToValueAtTime(0.8, startTime + 0.01);
+      g2.gain.linearRampToValueAtTime(0, startTime + 0.2);
+      osc2.start(startTime); osc2.stop(startTime + 0.2);
+    }
+
+    const t = ctx.currentTime;
+    alarm(t);
+    alarm(t + 0.3);
+    alarm(t + 0.6);
+    alarm(t + 0.9);
+    alarm(t + 1.2);
+  } catch(e) { console.log('Bell error:', e); }
+}
+
+// Expose playBell globally for module script to call
+window._kitchenPlayBell = function() {
+  if (_soundArmed) playBell();
+};
+</script>
+
+
+
+
+
+
+</body>
+</html>
