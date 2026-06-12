@@ -1,22 +1,14 @@
 {
-  "name": "Order Collation",
-  "short_name": "Collation",
-  "description": "Multi-branch order collation system",
-  "start_url": "./order_collation_app.html",
+  "name": "Ramen Hack POS",
+  "short_name": "RH Order",
+  "id": "/ramen-hack-UB/ramen-hack-order.html",
+  "start_url": "/ramen-hack-UB/ramen-hack-order.html",
+  "scope": "/ramen-hack-UB/",
   "display": "standalone",
-  "background_color": "#1a1a1a",
-  "theme_color": "#1a1a1a",
-  "orientation": "portrait",
+  "background_color": "#FFF8F0",
+  "theme_color": "#C0392B",
   "icons": [
-    {
-      "src": "icon.png",
-      "sizes": "192x192",
-      "type": "image/png"
-    },
-    {
-      "src": "icon.png",
-      "sizes": "512x512",
-      "type": "image/png"
-    }
+    { "src": "/ramen-hack-UB/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/ramen-hack-UB/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
   ]
 }
