@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>RH ALL</title>
+<meta name="theme-color" content="#1A1A1A">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="RH ALL">
+<link rel="manifest" href="rh-all-manifest.json">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;font-family:'Nunito',sans-serif;background:#1A1A1A;color:#fff;overflow-x:hidden;}
+
+.header{padding:24px 20px 12px;text-align:center;}
+.brand{font-family:'Black Han Sans',sans-serif;font-size:28px;color:#fff;letter-spacing:1px;}
+.brand span{color:#E8B84B;}
+.tagline{font-size:11px;font-weight:800;color:#555;letter-spacing:0.15em;text-transform:uppercase;margin-top:4px;}
+
+.section{padding:8px 16px 4px;}
+.section-label{font-size:10px;font-weight:900;letter-spacing:0.15em;text-transform:uppercase;color:#444;margin-bottom:8px;padding-left:2px;}
+
+.btn{
+  display:flex;align-items:center;gap:14px;
+  width:100%;padding:16px 18px;margin-bottom:10px;
+  background:#242424;border:none;border-radius:14px;
+  cursor:pointer;text-align:left;text-decoration:none;
+  border:1.5px solid #2e2e2e;
+  transition:background .15s;
+}
+.btn:active{background:#2e2e2e;}
+.btn-icon{font-size:24px;flex-shrink:0;width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;}
+.btn-icon.red{background:#C0392B22;}
+.btn-icon.orange{background:#e8622222;}
+.btn-icon.green{background:#16a34a22;}
+.btn-icon.blue{background:#1d4ed822;}
+.btn-icon.yellow{background:#E8B84B22;}
+.btn-text{}
+.btn-title{font-family:'Black Han Sans',sans-serif;font-size:15px;color:#fff;letter-spacing:.3px;}
+.btn-sub{font-size:11px;font-weight:800;color:#555;margin-top:2px;}
+
+.divider{height:1px;background:#242424;margin:8px 16px 12px;}
+
+.install-bar{
+  position:fixed;bottom:0;left:0;right:0;
+  background:#E8B84B;padding:14px 20px;
+  display:none;align-items:center;justify-content:space-between;
+  cursor:pointer;
+}
+.install-bar-text{font-family:'Black Han Sans',sans-serif;font-size:14px;color:#1A1A1A;}
+.install-bar-btn{background:#1A1A1A;color:#E8B84B;font-family:'Black Han Sans',sans-serif;font-size:12px;padding:6px 14px;border-radius:20px;border:none;}
+
+.footer{text-align:center;padding:20px 16px 32px;font-size:10px;color:#333;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="brand">RAMEN <span>HACK</span></div>
+  <div class="tagline">All Branches Launcher</div>
+</div>
+
+<div class="section">
+  <div class="section-label">📍 Porta Branch</div>
+  <a class="btn" href="porta-order.html" target="_blank">
+    <div class="btn-icon red">🛒</div>
+    <div class="btn-text">
+      <div class="btn-title">Porta — Order</div>
+      <div class="btn-sub">POS · Take orders</div>
+    </div>
+  </a>
+  <a class="btn" href="porta-kitchen.html" target="_blank">
+    <div class="btn-icon orange">🍳</div>
+    <div class="btn-text">
+      <div class="btn-title">Porta — Kitchen</div>
+      <div class="btn-sub">KDS · Manage queue</div>
+    </div>
+  </a>
+</div>
+
+<div class="divider"></div>
+
+<div class="section">
+  <div class="section-label">📍 UB Branch</div>
+  <a class="btn" href="ramen-hack-order.html" target="_blank">
+    <div class="btn-icon red">🛒</div>
+    <div class="btn-text">
+      <div class="btn-title">UB — Order</div>
+      <div class="btn-sub">POS · Take orders</div>
+    </div>
+  </a>
+  <a class="btn" href="ramen-hack-kitchen.html" target="_blank">
+    <div class="btn-icon orange">🍳</div>
+    <div class="btn-text">
+      <div class="btn-title">UB — Kitchen</div>
+      <div class="btn-sub">KDS · Manage queue</div>
+    </div>
+  </a>
+</div>
+
+<div class="divider"></div>
+
+<div class="section">
+  <div class="section-label">📊 Analytics</div>
+  <a class="btn" href="master-dashboard.html" target="_blank">
+    <div class="btn-icon yellow">📊</div>
+    <div class="btn-text">
+      <div class="btn-title">Master Dashboard</div>
+      <div class="btn-sub">All branches · Live feed</div>
+    </div>
+  </a>
+  <a class="btn" href="ramen-hack-dashboard.html" target="_blank">
+    <div class="btn-icon blue">📈</div>
+    <div class="btn-text">
+      <div class="btn-title">UB Dashboard</div>
+      <div class="btn-sub">Historical · Sheets data</div>
+    </div>
+  </a>
+</div>
+
+<div class="footer">Ramen Hack · All Branches</div>
+
+<div class="install-bar" id="install-bar" onclick="doInstall()">
+  <div class="install-bar-text">📲 Add to Home Screen</div>
+  <div class="install-bar-btn">INSTALL</div>
+</div>
+
+<script>
+let _prompt = null;
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  _prompt = e;
+  document.getElementById('install-bar').style.display = 'flex';
+});
+window.addEventListener('appinstalled', () => {
+  _prompt = null;
+  document.getElementById('install-bar').style.display = 'none';
+});
+function doInstall() {
+  if (!_prompt) return;
+  _prompt.prompt();
+  _prompt.userChoice.then(() => {
+    _prompt = null;
+    document.getElementById('install-bar').style.display = 'none';
+  });
+}
+</script>
+</body>
+</html>
