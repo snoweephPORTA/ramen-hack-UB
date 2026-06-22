@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Snowee & Ramen Hack — QR Codes</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:Arial,sans-serif;background:#f5f5f5;padding:20px;}
+h1{text-align:center;font-size:22px;margin-bottom:6px;color:#1A1A1A;}
+.subtitle{text-align:center;font-size:12px;color:#888;margin-bottom:24px;}
+.section{margin-bottom:30px;}
+.section-title{font-size:14px;font-weight:900;text-transform:uppercase;letter-spacing:1px;padding:8px 16px;border-radius:8px;margin-bottom:14px;color:#fff;}
+.section-title.snowee{background:#1B3A6B;}
+.section-title.ramen{background:#C0392B;}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:14px;}
+.qr-card{background:#fff;border-radius:12px;padding:16px 12px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,0.08);border:2px solid #eee;}
+.qr-card.snowee{border-color:#1B3A6B;}
+.qr-card.ramen{border-color:#C0392B;}
+.qr-label{font-size:12px;font-weight:900;margin-bottom:10px;color:#1A1A1A;line-height:1.3;}
+.qr-sublabel{font-size:10px;color:#888;margin-top:8px;word-break:break-all;line-height:1.4;}
+.qr-box{display:flex;justify-content:center;}
+@media print{body{background:#fff;padding:10px;}.qr-card{break-inside:avoid;}}
+</style>
+</head>
+<body>
+<h1>🧇 Snowee & 🍜 Ramen Hack</h1>
+<p class="subtitle">QR Codes — scan to open on any device</p>
+
+<div class="section">
+  <div class="section-title snowee">❄️ Snowee V2</div>
+  <div class="grid" id="g1"></div>
+</div>
+<div class="section">
+  <div class="section-title snowee">❄️ Snowee V1 (Production)</div>
+  <div class="grid" id="g2"></div>
+</div>
+<div class="section">
+  <div class="section-title ramen">🍜 Ramen Hack — Porta</div>
+  <div class="grid" id="g3"></div>
+</div>
+<div class="section">
+  <div class="section-title ramen">🍜 Ramen Hack — UB</div>
+  <div class="grid" id="g4"></div>
+</div>
+<div class="section">
+  <div class="section-title ramen">🍜 Ramen Hack — Abanao</div>
+  <div class="grid" id="g5"></div>
+</div>
+<div class="section">
+  <div class="section-title ramen">📊 Ramen Hack — Dashboard & Tools</div>
+  <div class="grid" id="g6"></div>
+</div>
+
+<script>
+const LINKS = {
+  g1:[
+    {label:'Snowee V2 POS',url:'https://snoweephporta.github.io/snowee-pos/snowee-v2.html',type:'snowee'},
+    {label:'Snowee V2 Dashboard',url:'https://snoweephporta.github.io/snowee-pos/dashboard-v2.html',type:'snowee'},
+  ],
+  g2:[
+    {label:'Snowee V1 POS',url:'https://snoweephporta.github.io/snowee-pos/snowee.html',type:'snowee'},
+    {label:'Snowee V1 Dashboard',url:'https://snoweephporta.github.io/snowee-pos/dashboard.html',type:'snowee'},
+  ],
+  g3:[
+    {label:'Porta Order',url:'https://snoweephporta.github.io/ramen-hack-UB/porta-order.html',type:'ramen'},
+    {label:'Porta Kitchen',url:'https://snoweephporta.github.io/ramen-hack-UB/porta-kitchen.html',type:'ramen'},
+  ],
+  g4:[
+    {label:'UB Order',url:'https://snoweephporta.github.io/ramen-hack-UB/ramen-hack-order.html',type:'ramen'},
+    {label:'UB Kitchen',url:'https://snoweephporta.github.io/ramen-hack-UB/ramen-hack-kitchen.html',type:'ramen'},
+  ],
+  g5:[
+    {label:'Abanao Order',url:'https://snoweephporta.github.io/ramen-hack-UB/abanao-order.html',type:'ramen'},
+    {label:'Abanao Kitchen',url:'https://snoweephporta.github.io/ramen-hack-UB/abanao-kitchen.html',type:'ramen'},
+  ],
+  g6:[
+    {label:'Master Dashboard',url:'https://snoweephporta.github.io/ramen-hack-UB/master-dashboard.html',type:'ramen'},
+    {label:'Order Collation App',url:'https://snoweephporta.github.io/ramen-hack-UB/order_collation_app.html',type:'ramen'},
+  ],
+};
+
+Object.entries(LINKS).forEach(([gridId,items])=>{
+  const grid=document.getElementById(gridId);
+  items.forEach((item,i)=>{
+    const card=document.createElement('div');
+    card.className='qr-card '+item.type;
+    const boxId='qr-'+gridId+'-'+i;
+    card.innerHTML=`<div class="qr-label">${item.label}</div><div class="qr-box" id="${boxId}"></div><div class="qr-sublabel">${item.url.replace('https://snoweephporta.github.io/','')}</div>`;
+    grid.appendChild(card);
+    setTimeout(()=>{
+      new QRCode(document.getElementById(boxId),{
+        text:item.url,width:140,height:140,
+        colorDark:'#1A1A1A',colorLight:'#ffffff',
+        correctLevel:QRCode.CorrectLevel.M
+      });
+    },100);
+  });
+});
+</script>
+</body>
+</html>
