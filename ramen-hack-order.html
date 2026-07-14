@@ -1021,7 +1021,13 @@ function confirmOrder(){
   if(_lastDate && _lastDate !== _nowDate){ orderCounter = 0; }
   orderCounter++;
   txnCounter++;
-  const txnId='TXN-'+String(txnCounter).padStart(5,'0');
+  // Timestamp component makes this collision-proof even if txnCounter's
+  // localStorage gets wiped (app reinstall, factory reset, new phone) —
+  // a fresh counter starting at 1 today will never reproduce an ID that
+  // already exists in the Sheet from weeks ago, since real time only
+  // moves forward. Purely client-side (Date.now()), no network dependency,
+  // so it holds up under bad connectivity same as before.
+  const txnId='TXN-'+Date.now()+'-'+String(txnCounter).padStart(3,'0');
   const order={id:orderCounter,txnId,customer,request,items:cart.map(i=>({...i})),subtotal,vatOn,vatBase,vatAmt,vatRate:settings.vatRate||12,discountType:coState.discount,discountId:discId,discountAmt:discAmt,total,payment:coState.payment,gcashRef,cashAmt:coState.cashAmt,change:coState.payment==='cash'?coState.cashAmt-total:0,status:'pending',time:Date.now()};
   orders.push(order);save();writeLocalSync();broadcastToKitchen();pushToWorker();queueOrderForSheets(order);
   playBell();
@@ -1651,7 +1657,7 @@ function queueOrderForSheets(order) {
   if (!exists) {
     _sheetsQueue.push({
       id: order.id,
-      txnId: order.txnId || ('TXN-'+String(order.id).padStart(5,'0')),
+      txnId: order.txnId || ('TXN-'+Date.now()+'-'+String(order.id).padStart(3,'0')),
       customer: order.customer || 'Guest',
       request: order.request || '',
       items: order.items.map(i => ({
@@ -1736,6 +1742,10 @@ async function pollWorkerForUpdates() {
     
     let changed = false;
     data.orders.forEach(wo => {
+      // The Worker's /orders store mixes all branches together — without
+      // this branch check, a UB device could match and overwrite an order
+      // from Porta/Abanao that happens to share the same txnId or timestamp.
+      if (wo.branch && wo.branch !== BRANCH) return;
       const local = orders.find(o => (wo.txnId && o.txnId === wo.txnId) || o.time === wo.timestamp);
       if (local) {
         // FLICKER FIX: cashier's recent manual tap wins for 10 seconds —
