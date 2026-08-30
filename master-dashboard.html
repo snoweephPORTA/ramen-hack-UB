@@ -53,6 +53,7 @@ html,body{height:100%;font-family:'Nunito',sans-serif;background:var(--off);colo
 .card-title{font-family:'Black Han Sans',sans-serif;font-size:13px;color:var(--yellow);}
 .card-sub{font-size:10px;font-weight:700;color:rgba(255,255,255,.5);}
 .card-body{padding:12px 14px;}
+.milestone-banner{background:linear-gradient(135deg,var(--yellow),#f7c948);color:var(--dark);font-family:'Nunito',sans-serif;font-weight:800;font-size:13px;border-radius:var(--r);padding:12px 14px;margin-bottom:10px;box-shadow:var(--shadow);border:2px solid #d4a017;}
 .big-stat{text-align:center;padding:14px 12px;}
 .big-num{font-family:'Black Han Sans',sans-serif;font-size:40px;color:var(--dark);line-height:1;}
 .big-lbl{font-size:11px;font-weight:800;color:var(--gray);text-transform:uppercase;margin-top:4px;}
@@ -196,6 +197,7 @@ html,body{height:100%;font-family:'Nunito',sans-serif;background:var(--off);colo
     <button class="tabbtn" onclick="switchTab('history')">📋 History</button>
     <button class="tabbtn" onclick="switchTab('insights')">💡 Insights</button>
     <button class="tabbtn" onclick="switchTab('alerts')">🚨 Alerts</button>
+    <button class="tabbtn" onclick="switchTab('milestones')">🏅 Milestones</button>
   </div>
   <div class="branchbar" id="branchbar">
     <button class="branchpill active" data-branch="ALL" onclick="setBranch('ALL')">🏢 All</button>
@@ -232,6 +234,7 @@ html,body{height:100%;font-family:'Nunito',sans-serif;background:var(--off);colo
       <div id="history-body"><div class="loading"><div class="spinner"></div>Loading...</div></div>
     </div>
     <div class="tab-panel" id="tab-alerts"><div id="alerts-body"><div class="loading"><div class="spinner"></div>Loading...</div></div></div>
+    <div class="tab-panel" id="tab-milestones"><div id="milestones-body"><div class="loading"><div class="spinner"></div>Loading...</div></div></div>
     <div class="tab-panel" id="tab-insights">
       <div id="insights-body"><div class="loading"><div class="spinner"></div>Analyzing...</div></div>
     </div>
@@ -342,6 +345,43 @@ function fmtDateLabel(ds){const d=new Date(ds+'T00:00:00');return d.toLocaleDate
 function localISO(d){const x=d||new Date();return x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0');}
 const today=()=>localISO();
 function getDays(n){const a=[];for(let i=n-1;i>=0;i--){const d=new Date();d.setDate(d.getDate()-i);a.push(localISO(d));}return a;}
+// Monday-start week key for a date string, e.g. '2026-08-24' for any day
+// that week — used to group daily totals into calendar weeks.
+function weekKey(dateStr){
+  const d=new Date(dateStr+'T00:00:00');
+  const dow=(d.getDay()+6)%7; // 0=Mon..6=Sun
+  d.setDate(d.getDate()-dow);
+  return localISO(d);
+}
+function weekLabel(mondayStr){
+  const start=new Date(mondayStr+'T00:00:00');
+  const end=new Date(start);end.setDate(start.getDate()+6);
+  return start.toLocaleDateString([],{month:'short',day:'numeric'})+' – '+end.toLocaleDateString([],{month:'short',day:'numeric'});
+}
+// Groups branch-aware daily totals (from branchDaily()) into Mon–Sun weeks,
+// most recent first. limit caps how many weeks are returned (null = all).
+function weeklyTotals(DS,limit){
+  const byWeek={};
+  DS.forEach(function(d){
+    const wk=weekKey(d.date);
+    if(!byWeek[wk])byWeek[wk]={week:wk,revenue:0,orders:0};
+    byWeek[wk].revenue+=d.revenue; byWeek[wk].orders+=d.orders;
+  });
+  const list=Object.values(byWeek).sort((a,b)=>b.week.localeCompare(a.week));
+  return limit?list.slice(0,limit):list;
+}
+// Groups branch-aware daily totals into calendar months (YYYY-MM), most
+// recent first — distinct from the rolling 30-day window already shown.
+function monthlyTotals(DS){
+  const byMonth={};
+  DS.forEach(function(d){
+    const mk=d.date.slice(0,7);
+    if(!byMonth[mk])byMonth[mk]={month:mk,revenue:0,orders:0};
+    byMonth[mk].revenue+=d.revenue; byMonth[mk].orders+=d.orders;
+  });
+  return Object.values(byMonth).sort((a,b)=>b.month.localeCompare(a.month));
+}
+function monthLabel(mk){return new Date(mk+'-01T00:00:00').toLocaleDateString([],{month:'long',year:'numeric'});}
 let rawRows=[],dailySummary=[],itemSummary=[],categorySummary=[];
 let currentTab='today',selectedDate=today(),itemFilter='today',currentBranch='ALL';
 
@@ -516,8 +556,18 @@ function switchTab(tab){
   currentTab=tab;
   document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.tabbtn').forEach(b=>b.classList.remove('active'));
-  document.getElementById('tab-'+tab).classList.add('active');
-  document.querySelectorAll('.tabbtn')[['today','weekly','monthly','items','history','insights','alerts'].indexOf(tab)].classList.add('active');
+  // 'today' is actually two panels — tab-all (live, all-branches overview,
+  // hardcoded to the current day) and tab-today (single date/branch view,
+  // date-picker aware). setBranch() already keeps these in sync when the
+  // branch pill changes; do the same here so clicking the Today tab button
+  // directly — while ALL is selected — doesn't leave the wrong panel visible.
+  if(tab==='today'){
+    document.getElementById('tab-all').classList.toggle('active',currentBranch==='ALL');
+    document.getElementById('tab-today').classList.toggle('active',currentBranch!=='ALL');
+  }else{
+    document.getElementById('tab-'+tab).classList.add('active');
+  }
+  document.querySelectorAll('.tabbtn')[['today','weekly','monthly','items','history','insights','alerts','milestones'].indexOf(tab)].classList.add('active');
   renderCurrentTab();
 }
 function branchRows(rows){
@@ -525,22 +575,23 @@ function branchRows(rows){
   return rows.filter(r=>String(r.branch||'UB')===currentBranch);
 }
 function branchDaily(){
-  if(currentBranch==='ALL') return dailySummary;
+  // dailySummary has one row per (date, branch) and is the full-history source
+  // (rawRows is order-line detail and doesn't necessarily go back as far — it's
+  // meant for item/category/order-log drill-downs, not long-range day totals).
+  // The old code returned dailySummary as-is for 'ALL', so a same-date lookup
+  // via .find() only ever saw whichever branch's row matched first, silently
+  // dropping the other branches' revenue for that day. Grouping-and-summing by
+  // date here — for both 'ALL' and a specific branch — fixes that while still
+  // covering dailySummary's full date range.
+  const rows=currentBranch==='ALL'?dailySummary:dailySummary.filter(d=>String(d.branch||'UB')===currentBranch);
   const byDate={};
-  branchRows(rawRows).forEach(function(r){
-    const d=r.date; if(!d) return;
-    if(!byDate[d]) byDate[d]={date:d,revenue:0,orders:0,cash:0,gcash:0,_seen:{}};
-    // Dedupe by txnId first, then branch-scoped orderNum — prevents cross-branch
-    // collisions and the Snowee bug where repeated queue numbers caused undercounting.
-    const txn=String(r.txn||r.txnId||'');
-    const branch=String(r.branch||'UB');
-    const key=txn || (branch+'|'+String(r.orderNum||''));
-    if(!byDate[d]._seen[key]){
-      byDate[d]._seen[key]=true;
-      const tot=parseFloat(r.order_total)||0;
-      byDate[d].revenue+=tot; byDate[d].orders+=1;
-      if((r.payment||'').toLowerCase()==='gcash') byDate[d].gcash+=tot; else byDate[d].cash+=tot;
-    }
+  rows.forEach(function(d){
+    if(!d.date)return;
+    if(!byDate[d.date])byDate[d.date]={date:d.date,revenue:0,orders:0,cash:0,gcash:0};
+    byDate[d.date].revenue+=(d.revenue||0);
+    byDate[d.date].orders+=(d.orders||0);
+    byDate[d.date].cash+=(d.cash||0);
+    byDate[d.date].gcash+=(d.gcash||0);
   });
   return Object.values(byDate);
 }
@@ -560,6 +611,7 @@ function renderCurrentTab(){
   else if(currentTab==='history')renderHistory();
   else if(currentTab==='insights')renderInsights();
   else if(currentTab==='alerts')renderAlerts();
+  else if(currentTab==='milestones')renderMilestones();
 }
 function goToday(){selectedDate=today();document.getElementById('date-picker').value=selectedDate;renderToday();}
 function getOrders(rows){
@@ -603,6 +655,17 @@ function rankList(items){
   if(!items.length)return'<div class="empty">No data</div>';
   const max=items[0].qty||1;
   return'<div class="rank-list">'+items.map((it,i)=>'<div class="rank-item"><div class="rnum '+(i===0?'rn1':i===1?'rn2':i===2?'rn3':'rnn')+'">'+(i+1)+'</div><div class="rank-info"><div class="rank-name">'+(it.name||it.item)+'</div><div class="rank-bar-wrap"><div class="rank-bar-fill" style="width:'+(it.qty/max*100).toFixed(0)+'%"></div></div></div><div class="rank-right"><div class="rank-qty">'+it.qty+'x</div><div class="rank-rev">₱'+fmt((it.rev||0).toFixed(0))+'</div></div></div>').join('')+'</div>';
+}
+// Generic revenue-ranked list — shared by Week/Month totals and Milestones'
+// top-10 days/weeks. items need {revenue, orders}; getLabel/getSub format
+// the row's title and optional subtitle.
+function revRankList(items,getLabel,getSub){
+  if(!items.length)return'<div class="empty">No data</div>';
+  const max=Math.max(...items.map(it=>it.revenue),1);
+  return'<div class="rank-list">'+items.map((it,i)=>{
+    const rn=i===0?'rn1':i===1?'rn2':i===2?'rn3':'rnn';
+    return'<div class="rank-item"><div class="rnum '+rn+'">'+(i+1)+'</div><div class="rank-info"><div class="rank-name">'+getLabel(it)+'</div>'+(getSub?'<div class="rank-cat">'+getSub(it)+'</div>':'')+'<div class="rank-bar-wrap"><div class="rank-bar-fill" style="width:'+(it.revenue/max*100).toFixed(0)+'%"></div></div></div><div class="rank-right"><div class="rank-qty">'+it.orders+' ord</div><div class="rank-rev">₱'+fmt(it.revenue.toFixed(0))+'</div></div></div>';
+  }).join('')+'</div>';
 }
 function rankListAllTime(items){
   if(!items.length)return'<div class="empty">No data</div>';
@@ -705,7 +768,18 @@ function orderLog(rows){
   }).join('')+'</div>';
 }
 function buildDayCard(rows,dateStr,liveBadge){
-  if(!rows.length)return`<div class="empty">📭 No orders for ${fmtDateLabel(dateStr)}</div>`;
+  if(!rows.length){
+    // rawRows (itemized order lines) doesn't necessarily cover the same
+    // range as dailySummary (day totals) — a date can have a known revenue
+    // total server-side with no line-item detail available client-side.
+    // Show what IS known instead of implying the day had zero sales.
+    const known=branchDaily().find(d=>d.date===dateStr);
+    if(known&&(known.revenue>0||known.orders>0)){
+      return`<div class="card"><div class="big-stat"><div class="big-num">₱${fmt(known.revenue.toFixed(0))}</div><div class="big-lbl">Total Revenue</div></div><div class="stat-grid"><div class="stat-item"><div class="stat-num">${known.orders}</div><div class="stat-lbl">Orders</div></div></div><div class="pay-row"><div class="pay-item"><div class="pay-num">₱${fmt(known.cash.toFixed(0))}</div><div class="pay-lbl">💵 Cash</div></div><div class="pay-item"><div class="pay-num" style="color:#007AFF">₱${fmt(known.gcash.toFixed(0))}</div><div class="pay-lbl">📱 GCash</div></div></div></div>
+      <div class="card" style="text-align:center;padding:16px;color:var(--gray);font-size:12px;">📋 Itemized order log isn't available for this date — showing daily totals only.</div>`;
+    }
+    return`<div class="empty">📭 No orders for ${fmtDateLabel(dateStr)}</div>`;
+  }
   const orders=getOrders(rows);
   const rev=orders.reduce((s,o)=>s+o.total,0);
   const cashO=orders.filter(o=>o.payment==='Cash'||o.payment==='cash');
@@ -847,7 +921,12 @@ function renderWeekly(){
     <div class="week-stats"><div class="ws"><div class="ws-num">${fmtK(wRev)}</div><div class="ws-lbl">Week Total</div></div><div class="ws"><div class="ws-num">${fmtK(active.length?wRev/active.length:0)}</div><div class="ws-lbl">Daily Avg</div></div><div class="ws"><div class="ws-num">${wOrders}</div><div class="ws-lbl">Orders</div></div></div></div>
     <div class="card"><div class="card-hd"><span class="card-title">⏰ Peak Hours This Week</span></div>${peakHourBoxes(weekRows)}</div>
     <div class="card"><div class="card-hd"><span class="card-title">🗂️ By Category This Week</span></div>${categoryBreakdown(weekRows)}</div>
-    <div class="card"><div class="card-hd"><span class="card-title">🏆 Top Items This Week</span></div>${rankList(getItemsFromRows(weekRows,20))}</div>`;
+    <div class="card"><div class="card-hd"><span class="card-title">🏆 Top Items This Week</span></div>${rankList(getItemsFromRows(weekRows,20))}</div>
+    ${weeklyTotalsCard(DS)}`;
+}
+function weeklyTotalsCard(DS){
+  const weeks=weeklyTotals(DS,12);
+  return`<div class="card"><div class="card-hd"><span class="card-title">📊 Sales by Week</span><span class="card-sub">Last ${weeks.length} weeks</span></div>${revRankList(weeks,w=>weekLabel(w.week),null)}</div>`;
 }
 function renderMonthly(){
   const DS=branchDaily();
@@ -866,7 +945,12 @@ function renderMonthly(){
     <div class="card"><div class="card-hd"><span class="card-title">🗂️ By Category This Month</span></div>${categoryBreakdown(monthRows)}</div>
     <div class="card"><div class="card-hd"><span class="card-title">🥧 Category Share</span></div>${pieSVG(monthRows)}</div>
     <div class="card"><div class="card-hd"><span class="card-title">⭐ Menu Matrix</span></div>${starMatrix(monthRows)}</div>
-    <div class="card"><div class="card-hd"><span class="card-title">🏆 Top Items This Month</span></div>${rankList(getItemsFromRows(monthRows,20))}</div>`;
+    <div class="card"><div class="card-hd"><span class="card-title">🏆 Top Items This Month</span></div>${rankList(getItemsFromRows(monthRows,20))}</div>
+    ${monthlyTotalsCard(DS)}`;
+}
+function monthlyTotalsCard(DS){
+  const months=monthlyTotals(DS);
+  return`<div class="card"><div class="card-hd"><span class="card-title">📊 Sales by Month</span><span class="card-sub">${months.length} month${months.length===1?'':'s'}</span></div>${revRankList(months,m=>monthLabel(m.month),null)}</div>`;
 }
 function setItemFilter(f){
   itemFilter=f;
@@ -902,7 +986,37 @@ function renderHistory(){
     <div class="stat-grid"><div class="stat-item"><div class="stat-num">${fmtK(allRev)}</div><div class="stat-lbl">Total Revenue</div></div><div class="stat-item"><div class="stat-num">${allOrders}</div><div class="stat-lbl">Total Orders</div></div><div class="stat-item"><div class="stat-num">${fmtK(allDays?allRev/allDays:0)}</div><div class="stat-lbl">Daily Avg</div></div><div class="stat-item"><div class="stat-num">${allDays}</div><div class="stat-lbl">Days Open</div></div></div></div>
     <div class="card"><div class="card-hd"><span class="card-title">📈 30-Day Trend</span></div>${trendLine(days30)}<div class="card-body"><div style="font-family:'Black Han Sans',sans-serif;font-size:16px;color:${trendColor};margin-bottom:6px;">${trendDir}</div><div style="font-size:11px;font-weight:700;color:var(--gray);">First 15 days avg: ${fmtK(firstHalf)} · Last 15 days avg: <span style="color:${trendColor}">${fmtK(secondHalf)}</span></div></div></div>
     <div class="card"><div class="card-hd"><span class="card-title">📅 Day of Week Pattern</span></div>${dowHeatmap()}</div>
-    <div class="card"><div class="card-hd"><span class="card-title">📋 Sales History</span><span class="card-sub">${allDays} days</span></div><div class="rank-list">${sorted.map(d=>`<div class="history-item"><div><div class="hist-date">${fmtDateLabel(d.date)}</div><div class="hist-sub">${d.orders} orders · 💵₱${fmt(d.cash)} 📱₱${fmt(d.gcash)}</div></div><div style="text-align:right;flex:1;"><div class="hist-rev">₱${fmt(d.revenue.toFixed(0))}</div></div></div>`).join('')}</div></div>`;
+    <div class="card"><div class="card-hd"><span class="card-title">📋 Sales History</span><span class="card-sub">${allDays} days · tap a day for its order log</span></div><div class="rank-list">${sorted.map(d=>{
+      const expanded=d.date===historyExpandedDate;
+      const row=`<div class="history-item" style="cursor:pointer;" onclick="toggleHistoryDay('${d.date}')"><div><div class="hist-date">${fmtDateLabel(d.date)}</div><div class="hist-sub">${d.orders} orders · 💵₱${fmt(d.cash)} 📱₱${fmt(d.gcash)}</div></div><div style="text-align:right;flex:1;"><div class="hist-rev">₱${fmt(d.revenue.toFixed(0))}</div></div></div>`;
+      const log=expanded?`<div class="history-day-log" style="padding:8px 14px 14px;background:var(--off);">${orderLog(branchRows(rawRows.filter(r=>r.date===d.date)))}</div>`:'';
+      return row+log;
+    }).join('')}</div></div>`;
+}
+// Days within the last 30 expand their order log inline, right here.
+// Anything older jumps to the Today tab's date-picker instead, which already
+// renders the full single-day breakdown (buildDayCard) — no need to rebuild
+// that here for a case staff will hit far less often than a recent lookup.
+let historyExpandedDate=null;
+function toggleHistoryDay(dateStr){
+  if(!getDays(30).includes(dateStr)){
+    // tab-all (the ALL-branch overview) is hardcoded to the live current
+    // day — it has no concept of an arbitrary date — so a historical lookup
+    // must always land on tab-today/renderToday(), which already handles
+    // any selectedDate correctly via branchRows(), regardless of whether
+    // currentBranch is a specific branch or ALL.
+    selectedDate=dateStr;
+    document.getElementById('date-picker').value=dateStr;
+    currentTab='today';
+    document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+    document.querySelectorAll('.tabbtn').forEach(b=>b.classList.remove('active'));
+    document.getElementById('tab-today').classList.add('active');
+    document.querySelectorAll('.tabbtn')[0].classList.add('active');
+    renderToday();
+    return;
+  }
+  historyExpandedDate=historyExpandedDate===dateStr?null:dateStr;
+  renderHistory();
 }
 function renderAlerts(){
   const el = document.getElementById('alerts-body');
@@ -971,6 +1085,89 @@ function renderAlerts(){
   html += '</div>';
   el.innerHTML = html;
 }
+// Crunches branch-aware daily totals (DS = branchDaily()) into everything
+// the Milestones tab shows: top-10 days/weeks, lifetime revenue progress
+// toward the next round-number threshold, best-day-per-weekday, and
+// open/consecutive-day streaks (current + best-ever).
+function computeMilestones(DS){
+  const sortedDays=[...DS].sort((a,b)=>b.revenue-a.revenue);
+  const top10Days=sortedDays.slice(0,10);
+  const weeks=weeklyTotals(DS).sort((a,b)=>b.revenue-a.revenue);
+  const top10Weeks=weeks.slice(0,10);
+  const lifetimeRevenue=DS.reduce((s,d)=>s+d.revenue,0);
+  const thresholds=[10000,25000,50000,100000,250000,500000,1000000,2000000,5000000,10000000];
+  const nextThreshold=thresholds.find(t=>t>lifetimeRevenue)||null;
+  let prevThreshold=0;
+  thresholds.forEach(t=>{if(t<=lifetimeRevenue)prevThreshold=t;});
+  // Best day per weekday (JS getDay: 0=Sun..6=Sat)
+  const byDow=[null,null,null,null,null,null,null];
+  DS.forEach(d=>{
+    const dow=new Date(d.date+'T00:00:00').getDay();
+    if(!byDow[dow]||d.revenue>byDow[dow].revenue)byDow[dow]=d;
+  });
+  // Streaks — consecutive calendar days with any revenue, computed over
+  // sorted active dates so a gap (closed day) correctly breaks the run.
+  const activeDates=DS.filter(d=>d.revenue>0).map(d=>d.date).sort();
+  let bestStreak=0,curRun=0,prevDate=null;
+  activeDates.forEach(function(ds){
+    curRun=(prevDate&&(new Date(ds+'T00:00:00')-new Date(prevDate+'T00:00:00'))/86400000===1)?curRun+1:1;
+    if(curRun>bestStreak)bestStreak=curRun;
+    prevDate=ds;
+  });
+  let currentStreak=0;
+  const latestActive=activeDates[activeDates.length-1];
+  if(latestActive&&(new Date(today()+'T00:00:00')-new Date(latestActive+'T00:00:00'))/86400000<=1){
+    let count=1,cursor=latestActive;
+    for(let i=activeDates.length-2;i>=0;i--){
+      if((new Date(cursor+'T00:00:00')-new Date(activeDates[i]+'T00:00:00'))/86400000===1){count++;cursor=activeDates[i];}
+      else break;
+    }
+    currentStreak=count;
+  }
+  // "New record" detection compares the most recent day/week with data
+  // against the all-time top spot — not calendar today, so this still works
+  // when viewing historical test data instead of a live feed.
+  const allDates=[...DS].map(d=>d.date).sort();
+  const latestDate=allDates[allDates.length-1];
+  const latestDay=DS.find(d=>d.date===latestDate)||null;
+  const latestWeekKey=latestDate?weekKey(latestDate):null;
+  const latestWeek=weeks.find(w=>w.week===latestWeekKey)||null;
+  const isNewDayRecord=!!(latestDay&&top10Days[0]&&latestDay.date===top10Days[0].date&&latestDay.revenue>0);
+  const isNewWeekRecord=!!(latestWeek&&top10Weeks[0]&&latestWeek.week===top10Weeks[0].week&&latestWeek.revenue>0);
+  return{top10Days,top10Weeks,lifetimeRevenue,nextThreshold,prevThreshold,byDow,bestStreak,currentStreak,latestDay,latestWeek,isNewDayRecord,isNewWeekRecord};
+}
+function renderMilestones(){
+  const DS=branchDaily();
+  const el=document.getElementById('milestones-body');
+  if(!DS.length){el.innerHTML='<div class="empty">No data yet</div>';return;}
+  const M=computeMilestones(DS);
+  const dowNames=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+  let banners='';
+  if(M.isNewDayRecord)banners+=`<div class="milestone-banner">🎉 NEW ALL-TIME BEST DAY! ${fmtDateLabel(M.latestDay.date)} hit ₱${fmt(M.latestDay.revenue.toFixed(0))}</div>`;
+  if(M.isNewWeekRecord)banners+=`<div class="milestone-banner">🏆 NEW ALL-TIME BEST WEEK! ${weekLabel(M.latestWeek.week)} — ₱${fmt(M.latestWeek.revenue.toFixed(0))}</div>`;
+
+  const progressPct=M.nextThreshold?Math.min(100,(M.lifetimeRevenue-M.prevThreshold)/(M.nextThreshold-M.prevThreshold)*100):100;
+  const progressCard=M.nextThreshold?
+    `<div class="card"><div class="card-hd"><span class="card-title">🎯 Next Milestone</span></div><div class="card-body">
+      <div style="font-family:'Black Han Sans',sans-serif;font-size:15px;margin-bottom:6px;">₱${fmt(M.lifetimeRevenue.toFixed(0))} <span style="color:var(--gray);font-size:12px;">/ ₱${fmt(M.nextThreshold)}</span></div>
+      <div class="rank-bar-wrap" style="height:10px;"><div class="rank-bar-fill" style="width:${progressPct.toFixed(0)}%;height:10px;"></div></div>
+      <div style="font-size:11px;font-weight:700;color:var(--gray);margin-top:6px;">${progressPct.toFixed(0)}% to your ${fmtK(M.nextThreshold)} lifetime revenue milestone</div>
+    </div></div>`
+    :`<div class="card"><div class="card-hd"><span class="card-title">🎯 Lifetime Revenue</span></div><div class="card-body" style="font-family:'Black Han Sans',sans-serif;font-size:18px;">₱${fmt(M.lifetimeRevenue.toFixed(0))} — legendary status 🐐</div></div>`;
+
+  const streakCard=`<div class="card"><div class="card-hd"><span class="card-title">🔥 Streaks</span></div><div class="stat-grid"><div class="stat-item"><div class="stat-num">${M.currentStreak}</div><div class="stat-lbl">Current Streak (days)</div></div><div class="stat-item"><div class="stat-num">${M.bestStreak}</div><div class="stat-lbl">Best Streak Ever</div></div></div></div>`;
+
+  const dowCard=`<div class="card"><div class="card-hd"><span class="card-title">📅 Best Day of the Week</span></div><div class="rank-list">${[1,2,3,4,5,6,0].filter(dow=>M.byDow[dow]).map(dow=>{
+    const d=M.byDow[dow];
+    const isLatest=M.latestDay&&d.date===M.latestDay.date;
+    return`<div class="rank-item"><div class="rank-info"><div class="rank-name">Best ${dowNames[dow]}${isLatest?' 🆕':''}</div><div class="rank-cat">${fmtDateLabel(d.date)}</div></div><div class="rank-right"><div class="rank-rev">₱${fmt(d.revenue.toFixed(0))}</div></div></div>`;
+  }).join('')}</div></div>`;
+
+  el.innerHTML=banners+progressCard+streakCard+dowCard+
+    `<div class="card"><div class="card-hd"><span class="card-title">🏆 Top 10 Sales Days</span></div>${revRankList(M.top10Days,d=>fmtDateLabel(d.date),null)}</div>`+
+    `<div class="card"><div class="card-hd"><span class="card-title">🏆 Top 10 Weeks</span></div>${revRankList(M.top10Weeks,w=>weekLabel(w.week),null)}</div>`;
+}
 function renderInsights(){
   const DS=branchDaily();
   const insights=[];
@@ -997,6 +1194,12 @@ function renderInsights(){
   weekRows.forEach(r=>{const h=getHourFromRow(r);if(h>=6&&h<=22)hmap[h]+=getAmtFromRow(r);});
   const peakH=Object.entries(hmap).sort((a,b)=>b[1]-a[1])[0];
   if(peakH&&peakH[1]>0){const h=Number(peakH[0]);insights.push({icon:'🕐',title:`Peak hour: ${h%12||12}${h<12?'AM':'PM'}`,desc:`Busiest hour this week with ₱${fmt(peakH[1].toFixed(0))} in sales.`,badge:'badge-yellow',badgeText:'Peak Hour'});}
+  // Reuse the Milestones tab's own math so a fresh record or an active
+  // streak surfaces here too, not just on the Milestones tab itself.
+  const M=computeMilestones(DS);
+  if(M.isNewDayRecord)insights.push({icon:'🎉',title:`New all-time best day!`,desc:`${fmtDateLabel(M.latestDay.date)} hit ₱${fmt(M.latestDay.revenue.toFixed(0))} — the best day yet.`,badge:'badge-green',badgeText:'New Record'});
+  if(M.isNewWeekRecord)insights.push({icon:'🏆',title:`New all-time best week!`,desc:`${weekLabel(M.latestWeek.week)} — ₱${fmt(M.latestWeek.revenue.toFixed(0))} — the best week yet.`,badge:'badge-green',badgeText:'New Record'});
+  if(M.currentStreak>=2)insights.push({icon:'🔥',title:`${M.currentStreak}-day sales streak`,desc:M.currentStreak>=M.bestStreak?`Tied with your best streak ever — keep it going!`:`Best ever: ${M.bestStreak} days.`,badge:'badge-yellow',badgeText:'Streak'});
   if(!insights.length){document.getElementById('insights-body').innerHTML='<div class="empty">Not enough data yet.</div>';return;}
   document.getElementById('insights-body').innerHTML=`<div class="card"><div class="card-hd"><span class="card-title">💡 Business Insights</span><span class="card-sub">Auto-generated</span></div><div>${insights.map(ins=>`<div class="insight-item"><div class="insight-icon">${ins.icon}</div><div class="insight-text"><div class="insight-title">${ins.title}</div><div class="insight-desc">${ins.desc}</div><span class="insight-badge ${ins.badge}">${ins.badgeText}</span></div></div>`).join('')}</div></div>`;
 }
